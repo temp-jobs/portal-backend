@@ -65,7 +65,7 @@ router.get('/public', async (req, res) => {
  * @desc    Get all jobs (for logged-in jobseekers)
  * @access  Private (Jobseeker)
  */
-router.get('/jobs', auth, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const jobs = await Job.find()
       .populate('employer', 'name companyName companyWebsite')
