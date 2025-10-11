@@ -79,7 +79,7 @@ router.put(
       if (companyName) {
         user.companyName = companyName;
         // Optional: keep `name` in sync for consistency
-        user.name = companyName;
+        user.companyName = companyName;
       }
       if (companyWebsite) user.companyWebsite = companyWebsite;
       if (companyIndustry) user.companyIndustry = companyIndustry;
