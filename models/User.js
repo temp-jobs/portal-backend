@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -32,7 +34,9 @@ const userSchema = new mongoose.Schema({
   // Employer profile fields
   companyWebsite: { type: String, trim: true },
   companyDescription: { type: String, trim: true },
-  companyIndustry: { type: String, trim: true },
-  companySize: { type: String, trim: true },
   companyLocation: { type: String, trim: true },
+  companySize: { type: String, trim: true },
+  companyIndustry: { type: String, trim: true }
 });
+
+module.exports = mongoose.model('User', userSchema);

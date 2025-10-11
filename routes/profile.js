@@ -64,7 +64,7 @@ router.put(
     if (!errors.isEmpty())
       return res.status(400).json({ message: errors.array()[0].msg });
 
-    const { companyName, companyWebsite, companyIndustry, companyLocation, companyDescription } = req.body;
+    const { companyName, companyWebsite, companyIndustry, companyLocation, companyDescription, companySize } = req.body;
 
     try {
       const user = await User.findById(req.user.id);
@@ -85,6 +85,8 @@ router.put(
       if (companyIndustry) user.companyIndustry = companyIndustry;
       if (companyLocation) user.companyLocation = companyLocation;
       if (companyDescription) user.companyDescription = companyDescription;
+      if (companySize) user.companySize = companySize;
+
 
       // ✅ Mark profile completed if essential fields exist
       const essentialFields = [user.companyName, user.companyLocation];
@@ -104,6 +106,7 @@ router.put(
           companyIndustry: user.companyIndustry,
           companyLocation: user.companyLocation,
           companyDescription: user.companyDescription,
+          companySize: user.companySize,
           profileCompleted: user.profileCompleted,
         },
       });
@@ -282,6 +285,8 @@ router.post(
       if (companyDescription) user.companyDescription = companyDescription.trim();
       if (companyLocation) user.companyLocation = companyLocation.trim();
       if (companyIndustry) user.companyIndustry = companyIndustry.trim();
+      if (companySize) user.companySize = companySize.trim();
+
 
       // Mark profile as completed if all mandatory fields exist
       user.profileCompleted = true;
