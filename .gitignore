@@ -1,0 +1,47 @@
+# ==========================================
+# Node & Express Backend .gitignore
+# For Part-Time Match (Render deployment)
+# ==========================================
+
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Build outputs
+dist/
+build/
+coverage/
+.tmp/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+
+# OS-specific junk
+*.bak
+*.tmp
+*.orig
+
+# Render / Deployment artifacts
+.render/
+.vercel/
+.cache/
