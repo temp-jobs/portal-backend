@@ -282,10 +282,7 @@ router.post(
       if (companyDescription) user.companyDescription = companyDescription.trim();
 
       // Mark profile as completed if all mandatory fields exist
-      user.profileCompleted = !!(
-        user.companyName &&
-        user.companyDescription
-      );
+      user.profileCompleted = true;
 
       await user.save();
 
