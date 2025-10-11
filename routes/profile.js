@@ -87,7 +87,7 @@ router.put(
       if (description) user.description = description;
 
       // ✅ Mark profile completed if essential fields exist
-      const essentialFields = [user.companyName, user.industry, user.location];
+      const essentialFields = [user.companyName, user.location];
       user.profileCompleted = essentialFields.every(Boolean);
 
       await user.save();
