@@ -64,7 +64,7 @@ router.put(
     if (!errors.isEmpty())
       return res.status(400).json({ message: errors.array()[0].msg });
 
-    const { companyName, website, industry, location, description } = req.body;
+    const { companyName, companyWebsite, companyIndustry, companyLocation, companyDescription } = req.body;
 
     try {
       const user = await User.findById(req.user.id);
@@ -81,13 +81,13 @@ router.put(
         // Optional: keep `name` in sync for consistency
         user.name = companyName;
       }
-      if (website) user.website = website;
-      if (industry) user.industry = industry;
-      if (location) user.location = location;
-      if (description) user.description = description;
+      if (companyWebsite) user.companyWebsite = companyWebsite;
+      if (companyIndustry) user.companyIndustry = companyIndustry;
+      if (companyLocation) user.companyLocation = companyLocation;
+      if (companyDescription) user.companyDescription = companyDescription;
 
       // ✅ Mark profile completed if essential fields exist
-      const essentialFields = [user.companyName, user.location];
+      const essentialFields = [user.companyName, user.companyLocation];
       user.profileCompleted = essentialFields.every(Boolean);
 
       await user.save();
@@ -100,10 +100,10 @@ router.put(
           email: user.email,
           role: user.role,
           companyName: user.companyName,
-          website: user.website,
-          industry: user.industry,
-          location: user.location,
-          description: user.description,
+          companyWebsite: user.companyWebsite,
+          companyIndustry: user.companyIndustry,
+          companyLocation: user.companyLocation,
+          companyDescription: user.companyDescription,
           profileCompleted: user.profileCompleted,
         },
       });
@@ -266,7 +266,7 @@ router.post(
         return res.status(403).json({ message: 'Unauthorized role for this endpoint' });
       }
 
-      const { companyName, companyWebsite, companyDescription } = req.body;
+      const { companyName, companyWebsite, companyDescription, companyLocation, companyIndustry } = req.body;
 
       // Smart validation: only required if not already filled
       if (!companyName && !user.companyName) {
@@ -280,6 +280,8 @@ router.post(
       if (companyName) user.companyName = companyName.trim();
       if (companyWebsite) user.companyWebsite = companyWebsite.trim();
       if (companyDescription) user.companyDescription = companyDescription.trim();
+      if (companyLocation) user.companyLocation = companyLocation.trim();
+      if (companyIndustry) user.companyIndustry = companyIndustry.trim();
 
       // Mark profile as completed if all mandatory fields exist
       user.profileCompleted = true;
@@ -287,7 +289,7 @@ router.post(
       await user.save();
 
       res.json({
-        message: 'Employer profile updated successfully',
+        message: 'Employer profile created successfully',
         user,
       });
     } catch (err) {
