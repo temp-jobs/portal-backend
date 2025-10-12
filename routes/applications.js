@@ -73,4 +73,20 @@ router.put('/:applicationId/status', auth, roleCheck('employer'), async (req, re
   }
 });
 
+// 🧩 Jobseeker gets all their job applications
+router.get('/', auth, roleCheck('jobseeker'), async (req, res) => {
+  try {
+    const applications = await Application.find({ applicant: req.user.id })
+      .populate({
+        path: 'job',
+        select: 'title companyName location',
+      })
+      .sort({ appliedAt: -1 });
+
+    res.json(applications);
+  } catch (err) {
+    console.error('Error fetching applications:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 module.exports = router;
