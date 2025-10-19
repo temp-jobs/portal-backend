@@ -19,25 +19,75 @@ router.post(
     body('title', 'Title is required').trim().notEmpty(),
     body('description', 'Description is required').trim().notEmpty(),
     body('location', 'Location is required').trim().notEmpty(),
+    body('category', 'Category is required').trim().notEmpty(),
+    body('type', 'Job type is required').trim().notEmpty(),
+    body('experienceLevel', 'Experience level is required').trim().notEmpty(),
+    // Optional fields can have custom validations if needed
+    body('salaryType').optional().isIn(['Fixed', 'Range', 'Variable']),
+    body('minSalary').optional().isNumeric(),
+    body('maxSalary').optional().isNumeric(),
+    body('currency').optional().isString(),
+    body('benefits').optional().isArray(),
+    body('skillsRequired').optional().isArray(),
+    body('education').optional().isString(),
+    body('openings').optional().isInt({ min: 1 }),
+    body('deadline').optional().isISO8601(),
+    body('jobDuration').optional().isString(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
-
-    const { title, description, location } = req.body;
+    if (!errors.isEmpty())
+      return res.status(400).json({ message: errors.array()[0].msg });
 
     try {
+      const {
+        title,
+        description,
+        location,
+        category,
+        type,
+        experienceLevel,
+        salaryType,
+        minSalary,
+        maxSalary,
+        currency,
+        benefits,
+        skillsRequired,
+        education,
+        openings,
+        deadline,
+        jobDuration,
+        companyName,
+        companyLogo,
+      } = req.body;
+
       const job = new Job({
         title,
         description,
         location,
-        employer: req.user.id,
+        category,
+        type,
+        experienceLevel,
+        employer: req.user.id, // required reference
+        salaryType,
+        minSalary,
+        maxSalary,
+        currency,
+        benefits,
+        skillsRequired,
+        education,
+        openings,
+        deadline,
+        jobDuration,
+        companyName,
+        companyLogo,
       });
 
       await job.save();
       res.json(job);
     } catch (err) {
-      res.status(500).send('Server error');
+      console.error('POST /post-job error:', err);
+      res.status(500).json({ message: 'Server error' });
     }
   }
 );
@@ -103,33 +153,33 @@ router.put(
   '/:id',
   auth,
   roleCheck('employer'),
-  [
-    body('title').optional().trim().notEmpty(),
-    body('description').optional().trim().notEmpty(),
-    body('location').optional().trim().notEmpty(),
-  ],
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
-
     try {
       const job = await Job.findById(req.params.id);
       if (!job) return res.status(404).json({ message: 'Job not found' });
       if (job.employer.toString() !== req.user.id)
         return res.status(403).json({ message: 'Not authorized' });
 
-      const { title, description, location } = req.body;
-      if (title) job.title = title;
-      if (description) job.description = description;
-      if (location) job.location = location;
+      // Update only provided fields
+      const updatableFields = [
+        'title', 'description', 'location', 'category', 'type',
+        'experienceLevel', 'salaryType', 'minSalary', 'maxSalary', 'currency',
+        'benefits', 'skillsRequired', 'education', 'openings', 'deadline', 'jobDuration', 'status'
+      ];
+
+      updatableFields.forEach(field => {
+        if (req.body[field] !== undefined) job[field] = req.body[field];
+      });
 
       await job.save();
       res.json(job);
     } catch (err) {
+      console.error(err);
       res.status(500).send('Server error');
     }
   }
 );
+
 
 /**
  * @route   DELETE /api/jobs/:id
@@ -139,16 +189,26 @@ router.put(
 router.delete('/:id', auth, roleCheck('employer'), async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
-    if (!job) return res.status(404).json({ message: 'Job not found' });
-    if (job.employer.toString() !== req.user.id)
-      return res.status(403).json({ message: 'Not authorized' });
 
-    await job.remove();
-    await Application.deleteMany({ job: req.params.id });
-    res.json({ message: 'Job removed' });
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    // Safety check: make sure employer exists and is a string
+    if (!job.employer || job.employer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Remove job
+    await job.deleteOne(); // safer than remove()
+
+    // Remove related applications
+    await Application.deleteMany({ job: job._id });
+
+    res.json({ message: 'Job removed successfully' });
   } catch (err) {
-    res.status(500).send('Server error');
+    console.error('Delete Job Error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 module.exports = router;

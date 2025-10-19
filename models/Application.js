@@ -1,10 +1,16 @@
+// models/Application.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
-const applicationSchema = new mongoose.Schema({
-  job: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: true },
-  applicant: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+const ApplicationSchema = new Schema({
+  job: { type: Schema.Types.ObjectId, ref: 'Job', required: true },
+  applicant: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  coverLetter: String,
+  resumeUrl: String,
+  status: { type: String, enum: ['pending', 'accepted', 'rejected', 'withdrawn', 'shortlisted'], default: 'pending' },
   appliedAt: { type: Date, default: Date.now },
-  status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
+  shortlisted: { type: Boolean, default: false }, // 👈 add this
+  chatInitiated: { type: Boolean, default: false }, // 👈 add this
 });
 
-module.exports = mongoose.model('Application', applicationSchema);
+module.exports = mongoose.model('Application', ApplicationSchema);

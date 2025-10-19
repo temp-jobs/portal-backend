@@ -4,7 +4,7 @@ const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 const Application = require('../models/Application');
 const Job = require('../models/Job');
-const User = require('../models/User');
+const Chat = require('../models/Chat')
 
 // Jobseeker applies to a job
 router.post('/:jobId/apply', auth, roleCheck('jobseeker'), async (req, res) => {
@@ -49,29 +49,29 @@ router.get('/job/:jobId', auth, roleCheck('employer'), async (req, res) => {
   }
 });
 
-// Employer updates application status
-router.put('/:applicationId/status', auth, roleCheck('employer'), async (req, res) => {
-  const { applicationId } = req.params;
-  const { status } = req.body; // expected: 'pending' | 'accepted' | 'rejected'
+// // Employer updates application status
+// router.put('/:applicationId/status', auth, roleCheck('employer'), async (req, res) => {
+//   const { applicationId } = req.params;
+//   const { status } = req.body; // expected: 'pending' | 'accepted' | 'rejected'
 
-  if (!['pending', 'accepted', 'rejected'].includes(status)) {
-    return res.status(400).json({ message: 'Invalid status' });
-  }
+//   if (!['pending', 'accepted', 'rejected'].includes(status)) {
+//     return res.status(400).json({ message: 'Invalid status' });
+//   }
 
-  try {
-    const application = await Application.findById(applicationId).populate('job');
-    if (!application) return res.status(404).json({ message: 'Application not found' });
+//   try {
+//     const application = await Application.findById(applicationId).populate('job');
+//     if (!application) return res.status(404).json({ message: 'Application not found' });
 
-    if (application.job.employer.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+//     if (application.job.employer.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
 
-    application.status = status;
-    await application.save();
+//     application.status = status;
+//     await application.save();
 
-    res.json({ message: 'Application status updated' });
-  } catch (err) {
-    res.status(500).send('Server error');
-  }
-});
+//     res.json({ message: 'Application status updated' });
+//   } catch (err) {
+//     res.status(500).send('Server error');
+//   }
+// });
 
 // 🧩 Jobseeker gets all their job applications
 router.get('/', auth, roleCheck('jobseeker'), async (req, res) => {
@@ -89,4 +89,70 @@ router.get('/', auth, roleCheck('jobseeker'), async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// EMPLOYER changes application status and optionally initiates chat
+router.put('/:applicationId/status', auth, roleCheck('employer'), async (req, res) => {
+  const { applicationId } = req.params;
+  const { status } = req.body; // 'pending' | 'accepted' | 'rejected' | 'shortlisted'
+
+  const validStatuses = ['pending', 'accepted', 'rejected', 'shortlisted'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+  }
+
+  try {
+    // Fetch application along with job and applicant details
+    const application = await Application.findById(applicationId)
+      .populate('job')
+      .populate('applicant', 'name email');
+
+    if (!application) return res.status(404).json({ message: 'Application not found' });
+
+    // Ensure employer owns the job
+    if (application.job.employer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    let chat = null;
+
+    // Handle shortlisted separately for chat initiation
+    if (status === 'shortlisted') {
+      application.shortlisted = true;
+
+      // Find existing chat
+      chat = await Chat.findOne({
+        participants: { $all: [req.user.id, application.applicant._id] },
+        job: application.job._id,
+      });
+
+      // Create new chat if not exists
+      if (!chat) {
+        chat = new Chat({
+          participants: [req.user.id, application.applicant._id],
+          job: application.job._id,
+          initiatedBy: req.user.id,
+        });
+        await chat.save();
+      }
+
+      application.chatInitiated = true;
+    }
+
+    // Update application status
+    application.status = status;
+    await application.save();
+
+    res.json({
+      message:
+        status === 'shortlisted'
+          ? `Candidate ${application.applicant.name} shortlisted and chat initiated.`
+          : `Application status updated to ${status}.`,
+      chatId: chat ? chat._id : null,
+    });
+  } catch (err) {
+    console.error('Error updating application status:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
