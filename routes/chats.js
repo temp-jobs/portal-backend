@@ -21,6 +21,13 @@ router.get('/user', authMiddleware, async (req, res) => {
       chats.map(async (chat) => {
         // partner is the other user
         const partner = chat.participants.find(p => p._id.toString() !== userId.toString());
+        let partnerNewName = ''
+
+        if (partner?.role === 'jobseeker') {
+          partnerNewName = partner?.name;
+        } else if (partner?.role === 'employer') {
+          partnerNewName = partner?.companyName;
+        }
 
         // last message
         const lastMsg = await Message.find({ roomId: chat._id })
@@ -38,7 +45,7 @@ router.get('/user', authMiddleware, async (req, res) => {
           _id: chat._id,
           chatId: chat._id,
           partnerId: partner?._id,
-          partnerName: partner?.name || 'Unknown',
+          partnerName: partnerNewName || 'Unknown',
           jobTitle: chat.job?.title || 'Unknown',
           lastMessage: lastMsg[0]?.content || '',
           timestamp: lastMsg[0]?.createdAt || chat.createdAt,
