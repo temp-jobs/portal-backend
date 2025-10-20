@@ -12,7 +12,7 @@ router.get('/user', authMiddleware, async (req, res) => {
 
     // 1️⃣ Find all chats where user is a participant
     const chats = await Chat.find({ participants: userId })
-      .populate('participants', 'name')  // get participant names
+      .populate('participants', 'name companyName role')  // get participant data
       .populate('job', 'title')
       .lean();
 
@@ -21,13 +21,12 @@ router.get('/user', authMiddleware, async (req, res) => {
       chats.map(async (chat) => {
         // partner is the other user
         const partner = chat.participants.find(p => p._id.toString() !== userId.toString());
-        let partnerNewName = ''
-
-        if (partner?.role === 'jobseeker') {
-          partnerNewName = partner?.name;
-        } else if (partner?.role === 'employer') {
-          partnerNewName = partner?.companyName;
-        }
+        const partnerName =
+          partner?.role === 'jobseeker'
+            ? partner?.name
+            : partner?.role === 'employer'
+              ? partner?.companyName
+              : 'Unknown';
 
         // last message
         const lastMsg = await Message.find({ roomId: chat._id })
@@ -45,7 +44,7 @@ router.get('/user', authMiddleware, async (req, res) => {
           _id: chat._id,
           chatId: chat._id,
           partnerId: partner?._id,
-          partnerName: partnerNewName || 'Unknown',
+          partnerName,
           jobTitle: chat.job?.title || 'Unknown',
           lastMessage: lastMsg[0]?.content || '',
           timestamp: lastMsg[0]?.createdAt || chat.createdAt,
