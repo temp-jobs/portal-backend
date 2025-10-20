@@ -104,6 +104,7 @@ router.post(
           user: {
             id: user.id,
             name: user.name,
+            companyName: user.companyName,
             email: user.email,
             role: user.role,
             profileCompleted: user.profileCompleted,
