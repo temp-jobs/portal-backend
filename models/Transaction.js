@@ -1,14 +1,14 @@
-// models/Transaction.js
+// src/models/Transaction.js
 const mongoose = require('mongoose');
-const { Schema } = mongoose;
 
-const TransactionSchema = new Schema({
-  wallet: { type: Schema.Types.ObjectId, ref: 'Wallet' },
-  type: { type: String, enum: ['topup','payout','escrow_hold','escrow_release','fee'] },
+const transactionSchema = new mongoose.Schema({
+  walletId: { type: mongoose.Schema.Types.ObjectId, ref: 'Wallet', required: true },
+  type: { type: String, enum: ['CREDIT', 'DEBIT'], required: true },
   amount: { type: Number, required: true },
-  status: { type: String, enum: ['pending','completed','failed'], default: 'pending' },
-  metadata: Schema.Types.Mixed,
-  createdAt: { type: Date, default: Date.now },
-});
-
-module.exports = mongoose.model('Transaction', TransactionSchema);
+  method: { type: String, required: true }, // Razorpay, Stripe, etc.
+  referenceId: { type: String, required: true }, // Razorpay order/payment ID
+  description: { type: String },
+  status: { type: String, enum: ['PENDING', 'SUCCESS', 'FAILED'], default: 'PENDING' },
+}, { timestamps: true });
+const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', transactionSchema);
+module.exports = Transaction;
