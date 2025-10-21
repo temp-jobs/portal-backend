@@ -46,7 +46,7 @@ router.post(
 
       await user.save();
 
-      const payload = { user: { id: user.id } };
+      const payload = { user: { id: user.id, role: user.role } };
       jwt.sign(
         payload,
         process.env.JWT_SECRET,
@@ -104,6 +104,7 @@ router.post(
           user: {
             id: user.id,
             name: user.name,
+            companyName: user.companyName,
             email: user.email,
             role: user.role,
             profileCompleted: user.profileCompleted,

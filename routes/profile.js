@@ -1,94 +1,68 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
-const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
-
-// @route GET /api/profile
-// @desc Get logged in user profile
-// @access Private
-router.get('/employer', auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.role === 'employer') {
-      res.json(user);
-    } else {
-      res.message("Access Denied")
-    }
-
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-router.get('/jobseeker', auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.role === 'jobseeker') {
-      res.json(user);
-    } else {
-      res.message("Access Denied")
-    }
-
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// @route PUT /api/profile
-// @desc Update base profile info (name only for now)
-// @access Private
+const auth = require('../middleware/auth');
+const roleCheck = require('../middleware/roleCheck');
+const User = require('../models/User');
 
 /**
- * @route   PUT /employer
- * @desc    Update employer profile details
- * @access  Private (Employer)
+ * 🔹 GET: Logged-in Employer Profile
+ */
+router.get('/employer', auth, roleCheck('employer'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * 🔹 GET: Logged-in Jobseeker Profile
+ */
+router.get('/jobseeker', auth, roleCheck('jobseeker'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * 🔹 PUT: Update Employer Profile
  */
 router.put(
   '/employer',
   auth,
+  roleCheck('employer'),
   [
-    // ✅ Don't force `name` — it's auto-managed from companyName
     body('companyName').trim().notEmpty().withMessage('Company name is required'),
-    body('website').optional().trim().isURL().withMessage('Invalid website URL'),
-    body('industry').optional().trim(),
-    body('location').optional().trim(),
-    body('description').optional().trim().isLength({ max: 500 }).withMessage('Description too long'),
+    body('companyWebsite').optional().isURL().withMessage('Invalid company website URL'),
+    body('companyDescription').optional().trim().isLength({ max: 500 }).withMessage('Description too long'),
+    body('companyLocation').optional().trim(),
+    body('companyIndustry').optional().trim(),
+    body('companySize').optional().trim(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
       return res.status(400).json({ message: errors.array()[0].msg });
 
-    const { companyName, companyWebsite, companyIndustry, companyLocation, companyDescription, companySize } = req.body;
-
     try {
       const user = await User.findById(req.user.id);
       if (!user) return res.status(404).json({ message: 'User not found' });
 
-      // Ensure this route is used only by employer users
-      if (user.role !== 'employer') {
-        return res.status(403).json({ message: 'Access denied. Not an employer account.' });
-      }
+      const fields = ['companyName', 'companyWebsite', 'companyDescription', 'companyLocation', 'companyIndustry', 'companySize'];
+      fields.forEach((field) => {
+        if (req.body[field]) user[field] = req.body[field];
+      });
 
-      // ✅ Update allowed fields dynamically
-      if (companyName) {
-        user.companyName = companyName;
-        // Optional: keep `name` in sync for consistency
-        user.name = companyName;
-      }
-      if (companyWebsite) user.companyWebsite = companyWebsite;
-      if (companyIndustry) user.companyIndustry = companyIndustry;
-      if (companyLocation) user.companyLocation = companyLocation;
-      if (companyDescription) user.companyDescription = companyDescription;
-      if (companySize) user.companySize = companySize;
-
-
-      // ✅ Mark profile completed if essential fields exist
+      // Mark profile complete
       const essentialFields = [user.companyName, user.companyLocation];
       user.profileCompleted = essentialFields.every(Boolean);
 
@@ -96,19 +70,7 @@ router.put(
 
       res.json({
         message: 'Employer profile updated successfully',
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          companyName: user.companyName,
-          companyWebsite: user.companyWebsite,
-          companyIndustry: user.companyIndustry,
-          companyLocation: user.companyLocation,
-          companyDescription: user.companyDescription,
-          companySize: user.companySize,
-          profileCompleted: user.profileCompleted,
-        },
+        user,
       });
     } catch (err) {
       console.error('Employer profile update error:', err.message);
@@ -117,53 +79,33 @@ router.put(
   }
 );
 
-
 /**
- * @route   PUT /jobseeker
- * @desc    Update jobseeker profile details
- * @access  Private (Jobseeker)
+ * 🔹 PUT: Update Jobseeker Profile
  */
 router.put(
   '/jobseeker',
   auth,
+  roleCheck('jobseeker'),
   [
     body('name').trim().notEmpty().withMessage('Name is required'),
-    body('skills')
-      .optional()
-      .isArray()
-      .withMessage('Skills must be an array of strings'),
-    body('experience')
-      .optional()
-      .isArray()
-      .withMessage('Experience must be an array [years, jobType, availability]'),
-    body('education')
-      .optional()
-      .isArray()
-      .withMessage('Education must be an array [qualification, institute, passingYear]'),
+    body('skills').optional().isArray().withMessage('Skills must be an array'),
+    body('experience').optional().isArray().withMessage('Experience must be an array'),
+    body('education').optional().isArray().withMessage('Education must be an array'),
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
       return res.status(400).json({ message: errors.array()[0].msg });
 
-    const { name, skills, experience, education } = req.body;
-
     try {
       const user = await User.findById(req.user.id);
       if (!user) return res.status(404).json({ message: 'User not found' });
 
-      // Ensure this route is for jobseekers only
-      if (user.role !== 'jobseeker') {
-        return res.status(403).json({ message: 'Access denied. Not a jobseeker account.' });
-      }
+      const fields = ['name', 'skills', 'experience', 'education'];
+      fields.forEach((field) => {
+        if (req.body[field]) user[field] = req.body[field];
+      });
 
-      // Update provided fields dynamically
-      if (name) user.name = name;
-      if (skills) user.skills = skills;
-      if (experience) user.experience = experience;
-      if (education) user.education = education;
-
-      // Mark profile as completed if essential fields exist
       const essentialFields = [user.name, user.skills?.length, user.education?.length];
       user.profileCompleted = essentialFields.every(Boolean);
 
@@ -171,16 +113,7 @@ router.put(
 
       res.json({
         message: 'Jobseeker profile updated successfully',
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          skills: user.skills,
-          experience: user.experience,
-          education: user.education,
-          profileCompleted: user.profileCompleted,
-        },
+        user,
       });
     } catch (err) {
       console.error('Jobseeker profile update error:', err.message);
@@ -189,120 +122,73 @@ router.put(
   }
 );
 
-
-
-// @route POST /api/profile/jobseeker
-// @desc Complete jobseeker profile and mark profileCompleted
-// @access Private
+/**
+ * 🔹 POST: Complete Jobseeker Profile (initial creation)
+ */
 router.post(
   '/jobseeker',
   auth,
+  roleCheck('jobseeker'),
   [
-    body('skills', 'Skills are required').isArray({ min: 1 }),
-    body('skills.*', 'Skills must be strings').isString(),
-    body('experience', 'Experience is required').isArray({ min: 1 }),
-    body('experience.*', 'Experience must be strings').isString(),
-    body('education', 'Education is required').isArray({ min: 1 }),
-    body('education.*', 'Education must be strings').isString(),
+    body('skills').isArray({ min: 1 }).withMessage('Skills are required'),
+    body('experience').isArray({ min: 1 }).withMessage('Experience is required'),
+    body('education').isArray({ min: 1 }).withMessage('Education is required'),
   ],
   async (req, res) => {
-    if (!req.user.id) return res.status(401).json({ message: 'Unauthorized' });
-
     const errors = validationResult(req);
     if (!errors.isEmpty())
       return res.status(400).json({ message: errors.array()[0].msg });
 
-    const { skills, experience, education } = req.body;
-
     try {
       const user = await User.findById(req.user.id);
       if (!user) return res.status(404).json({ message: 'User not found' });
 
-      if (user.role !== 'jobseeker') {
-        return res.status(403).json({ message: 'Unauthorized role for this endpoint' });
-      }
-
-      user.skills = skills;
-      user.experience = experience;
-      user.education = education;
+      Object.assign(user, req.body);
       user.profileCompleted = true;
-
       await user.save();
 
-      res.json({ user, message: 'Jobseeker profile completed successfully' });
+      res.json({ message: 'Jobseeker profile completed successfully', user });
     } catch (err) {
-      console.error(err.message);
-      res.status(500).send('Server error');
-    }
-  }
-);
-
-// @route POST /api/profile/employer
-// @desc Complete employer profile and mark profileCompleted
-// @access Private
-
-
-router.post(
-  '/employer',
-  auth,
-  [
-    body('companyWebsite')
-      .optional()
-      .isURL()
-      .withMessage('Company website must be a valid URL'),
-  ],
-  async (req, res) => {
-    if (!req.user?.id) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ message: errors.array()[0].msg });
-    }
-
-    try {
-      const user = await User.findById(req.user.id);
-      if (!user) return res.status(404).json({ message: 'User not found' });
-
-      if (user.role !== 'employer') {
-        return res.status(403).json({ message: 'Unauthorized role for this endpoint' });
-      }
-
-      const { companyName, companyWebsite, companyDescription, companyLocation, companyIndustry } = req.body;
-
-      // Smart validation: only required if not already filled
-      if (!companyName && !user.companyName) {
-        return res.status(400).json({ message: 'Company name is required' });
-      }
-      if (!companyDescription && !user.companyDescription) {
-        return res.status(400).json({ message: 'Company description is required' });
-      }
-
-      // Update only provided fields
-      if (companyName) user.companyName = companyName.trim();
-      if (companyWebsite) user.companyWebsite = companyWebsite.trim();
-      if (companyDescription) user.companyDescription = companyDescription.trim();
-      if (companyLocation) user.companyLocation = companyLocation.trim();
-      if (companyIndustry) user.companyIndustry = companyIndustry.trim();
-      if (companySize) user.companySize = companySize.trim();
-
-
-      // Mark profile as completed if all mandatory fields exist
-      user.profileCompleted = true;
-
-      await user.save();
-
-      res.json({
-        message: 'Employer profile created successfully',
-        user,
-      });
-    } catch (err) {
-      console.error(err);
+      console.error('Jobseeker profile create error:', err.message);
       res.status(500).json({ message: 'Server error' });
     }
   }
 );
+
+/**
+ * 🔹 POST: Complete Employer Profile (initial creation)
+ */
+router.post(
+  '/employer',
+  auth,
+  roleCheck('employer'),
+  [
+    body('companyWebsite').optional().isURL().withMessage('Invalid URL'),
+    body('companySize').optional().trim(),
+    body('companyLocation').optional().trim(),
+    body('companyDescription').optional().trim(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ message: errors.array()[0].msg });
+
+    try {
+      const user = await User.findById(req.user.id);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+
+      Object.assign(user, req.body);
+      user.profileCompleted = true;
+      await user.save({ validateModifiedOnly: true }); // ✅ this line is key
+
+      res.json({ message: 'Employer profile updated successfully', user });
+    } catch (err) {
+      console.error('Employer profile create/update error:', err.message);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+);
+
 
 
 module.exports = router;

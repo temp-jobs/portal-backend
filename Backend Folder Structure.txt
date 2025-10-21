@@ -1,0 +1,17 @@
+backend/
+├── server.js
+├── config/
+├── shared/
+│   ├── middleware/
+│   ├── utils/
+│   └── constants/
+├── services/
+│   ├── auth-service/
+│   ├── chat-service/
+│   ├── test-service/  
+│   ├── payment-service/
+│   ├── notification-service/
+│   └── whatsapp-service/
+├── models/ (shared)
+├── routes/ (API gateway)
+└── queues/ (Redis-based)
