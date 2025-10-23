@@ -1,4 +1,3 @@
-// models/Application.js
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
@@ -9,8 +8,9 @@ const ApplicationSchema = new Schema({
   resumeUrl: String,
   status: { type: String, enum: ['pending', 'accepted', 'rejected', 'withdrawn', 'shortlisted'], default: 'pending' },
   appliedAt: { type: Date, default: Date.now },
-  shortlisted: { type: Boolean, default: false }, // 👈 add this
-  chatInitiated: { type: Boolean, default: false }, // 👈 add this
+  shortlisted: { type: Boolean, default: false },
+  chatInitiated: { type: Boolean, default: false },
+  matchScore: { type: Number, default: 0 } // optional caching
 });
 
 module.exports = mongoose.model('Application', ApplicationSchema);

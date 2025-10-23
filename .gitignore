@@ -45,3 +45,7 @@ Thumbs.db
 .render/
 .vercel/
 .cache/
+.txt/
+
+
+.matchingEngine.txt/

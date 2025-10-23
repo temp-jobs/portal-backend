@@ -23,7 +23,8 @@
     "multer": "^2.0.2",
     "nodemon": "^3.1.10",
     "razorpay": "^2.9.6",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "winston": "^3.18.3"
   },
   "engines": {
     "node": ">=18.0.0"
