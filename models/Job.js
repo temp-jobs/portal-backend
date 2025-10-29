@@ -11,7 +11,7 @@ const jobSchema = new mongoose.Schema({
   description: { type: String, required: true, trim: true },
   category: { type: String, required: true },
   type: { type: String, enum: ['Full-time', 'Part-time', 'Internship', 'Contract', 'Freelance', 'Remote'], required: true },
-  experienceLevel: { type: String, enum: ['Entry', 'Mid', 'Senior'], required: true },
+  experienceLevel: { type: String, enum: ['Fresher', 'Mid', 'Senior'], required: true },
   location: {
     type: { type: String, default: 'Point' },
     coordinates: { type: [Number], default: [0, 0] }

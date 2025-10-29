@@ -4,7 +4,8 @@ const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 const Application = require('../models/Application');
 const Job = require('../models/Job');
-const Chat = require('../models/Chat')
+const Chat = require('../models/Chat');
+const matchingService = require('../services/matching/matchService')
 
 // Jobseeker applies to a job
 router.post('/:jobId/apply', auth, roleCheck('jobseeker'), async (req, res) => {
@@ -30,24 +31,54 @@ router.post('/:jobId/apply', auth, roleCheck('jobseeker'), async (req, res) => {
   }
 });
 
-// Employer gets all applications for their job
+// ✅ Get all applications for a given job (for employer dashboard)
 router.get('/job/:jobId', auth, roleCheck('employer'), async (req, res) => {
   const jobId = req.params.jobId;
 
   try {
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ message: 'Job not found' });
-    if (job.employer.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
 
+    if (job.employer.toString() !== req.user.id)
+      return res.status(403).json({ message: 'Not authorized' });
+
+    // ✅ Get all applications for this job
     const applications = await Application.find({ job: jobId })
-      .populate('applicant', 'name email skills experience education')
-      .sort({ appliedAt: -1 });
+      .populate('applicant', 'name email skills experience education location profileCompleted')
+      .lean();
 
-    res.json(applications);
+    // ✅ Enrich each application with matchPercentage
+    const enriched = await Promise.all(
+      applications.map(async (app) => {
+        let matchPercentage = app.matchScore;
+
+        // compute if not already stored or if 0
+        if (!matchPercentage || matchPercentage === 0) {
+          const candidate = app.applicant;
+          const { total } = await matchingService.computeScoreForJobCandidate({
+            job,
+            candidate,
+          });
+
+          matchPercentage = Math.round(total);
+          // cache it in DB for future
+          await Application.findByIdAndUpdate(app._id, { matchScore: matchPercentage });
+        }
+
+        return { ...app, matchPercentage };
+      })
+    );
+
+    // ✅ Sort descending by match score
+    enriched.sort((a, b) => b.matchPercentage - a.matchPercentage);
+
+    return res.json(enriched);
   } catch (err) {
-    res.status(500).send('Server error');
+    console.error('Error fetching applicants with match score:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 // // Employer updates application status
 // router.put('/:applicationId/status', auth, roleCheck('employer'), async (req, res) => {

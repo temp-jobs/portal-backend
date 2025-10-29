@@ -4,6 +4,8 @@ const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 const User = require('../models/User');
+const { geocodePincode } = require('../helpers/geocode');
+
 
 /**
  * 🔹 GET: Logged-in Employer Profile
@@ -133,6 +135,7 @@ router.post(
     body('skills').isArray({ min: 1 }).withMessage('Skills are required'),
     body('experience').isArray({ min: 1 }).withMessage('Experience is required'),
     body('education').isArray({ min: 1 }).withMessage('Education is required'),
+    body('pincode').notEmpty().withMessage('Pincode is required'),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -143,8 +146,45 @@ router.post(
       const user = await User.findById(req.user.id);
       if (!user) return res.status(404).json({ message: 'User not found' });
 
-      Object.assign(user, req.body);
-      user.profileCompleted = true;
+      const {
+        skills,
+        experience,
+        education,
+        availability,
+        preferredSalary,
+        preferredIndustry,
+        pincode,
+      } = req.body;
+
+      // Convert pincode to coordinates
+      let coordinates = [0, 0];
+      if (pincode) {
+        const geo = await geocodePincode(pincode);
+        if (geo) coordinates = [geo.lng, geo.lat]; // GeoJSON: [lng, lat]
+      }
+
+      // Compute total experience in years
+      const totalExperience = experience.reduce((sum, exp) => {
+        if (exp.years) {
+          if (exp.years === 'Fresher / No Experience') return sum;
+          const yrs = exp.years.includes('>') ? parseInt(exp.years.replace('>', '')) : parseInt(exp.years);
+          return sum + (isNaN(yrs) ? 0 : yrs);
+        }
+        return sum;
+      }, 0);
+
+      Object.assign(user, {
+        skills,
+        experience,
+        education,
+        availability,
+        preferredSalary,
+        preferredIndustry,
+        totalExperience,
+        location: { type: 'Point', coordinates },
+        profileCompleted: true,
+      });
+
       await user.save();
 
       res.json({ message: 'Jobseeker profile completed successfully', user });
