@@ -33,22 +33,57 @@ const userSchema = new mongoose.Schema({
   companyName: {
     type: String,
     trim: true,
-    required: function () { return this.role === 'employer'; },
+    required: false 
   },
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true },
-  role: { type: String, enum: ['jobseeker', 'employer'], required: true },
-  profileCompleted: { type: Boolean, default: false },
+
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true, 
+    lowercase: true, 
+    trim: true 
+  },
+
+  // ✅ Updated: password is NOT required if authProvider is google
+  password: { 
+    type: String,
+    required: function () { return this.authProvider !== 'google'; }
+  },
+
+  role: { 
+    type: String, 
+    enum: ['jobseeker', 'employer'], 
+    required: true 
+  },
+
+  profileCompleted: { 
+    type: Boolean, 
+    default: false 
+  },
+
+  // ✅ Added for Google login
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local',
+  },
+
+  googleId: {
+    type: String, // Google "sub" ID
+    sparse: true,
+  },
 
   // --- Jobseeker fields ---
   skills: { type: [String], default: [] },
   experience: [experienceSchema],
-  totalExperience: { type: Number, default: 0 }, // computed from experience array
+  totalExperience: { type: Number, default: 0 }, 
   education: [educationSchema],
+  
   location: {
     type: { type: String, default: 'Point' },
-    coordinates: { type: [Number], default: [0, 0] } // [lng, lat]
+    coordinates: { type: [Number], default: [0, 0] }
   },
+
   availability: [availabilitySchema],
   preferredSalary: { type: Number },
   preferredIndustry: { type: String },
@@ -60,6 +95,7 @@ const userSchema = new mongoose.Schema({
   companySize: { type: String, trim: true },
   companyIndustry: { type: String, trim: true },
 });
+
 
 userSchema.index({ location: '2dsphere' }); // geospatial index for jobseeker
 
