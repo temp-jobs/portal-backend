@@ -49,6 +49,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: function () { return this.authProvider !== 'google'; }
   },
+  // OTP fields (for email verification using OTP)
+
+ isVerified: { type: Boolean, default: false },
 
   role: { 
     type: String, 

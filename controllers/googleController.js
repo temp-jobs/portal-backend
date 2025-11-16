@@ -67,6 +67,8 @@ export const googleAuth = async (req, res) => {
       role,
       googleId,
       profileCompleted: false,
+      isVerified: true,
+
     };
 
     if (role === "jobseeker") newUserData.name = name;

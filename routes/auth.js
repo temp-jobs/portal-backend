@@ -6,10 +6,17 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { googleAuth } = require('../controllers/googleController');
-
+const { sendOtp, verifyOtp, resendOtp } = require('../controllers/otpController');
+const crypto = require('crypto');
+const OtpTempUser = require('../models/OtpTempUser');
+const { sendOtpEmail } = require('../utils/email');
+function hashOtp(otp) {
+  return crypto.createHash('sha256').update(otp).digest('hex');
+}
 // ==============================
 // Register User
 // ==============================
+
 router.post(
   '/register',
   [
@@ -25,28 +32,45 @@ router.post(
     const { name, email, password, role, companyName } = req.body;
 
     try {
-      let user = await User.findOne({ email });
-      if (user) return res.status(400).json({ message: 'User already exists' });
+      // Check main DB first
+      const existingUser = await User.findOne({ email });
+      if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
-      if (role === 'jobseeker') {
-        if (!name)
-          return res.status(400).json({ message: 'Name is required for jobseeker' });
-        user = new User({ name, email, password, role });
-      } else if (role === 'employer') {
-        if (!companyName)
-          return res.status(400).json({ message: 'Company name is required for employer' });
-        user = new User({ companyName, email, password, role });
-      }
+      // Check if temporary OTP user already exists
+      let tempUser = await OtpTempUser.findOne({ email });
+      if (tempUser) await tempUser.deleteOne(); // remove old OTP entry
 
+      // Hash password
       const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(password, salt);
+      const hashedPassword = await bcrypt.hash(password, salt);
 
-      await user.save();
+      // Generate OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const hashedOtp = hashOtp(otp);
 
-      const payload = { user: { id: user.id, role: user.role } };
-      jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
-        if (err) throw err;
-        res.json({ token, user });
+      // Create temporary OTP user
+      tempUser = new OtpTempUser({
+        name: role === 'jobseeker' ? name : undefined,
+        companyName: role === 'employer' ? companyName : undefined,
+        email,
+        password: hashedPassword,
+        role,
+        otpCode: hashedOtp,
+        otpExpires: Date.now() + 10 * 60 * 1000, // 10 min
+        otpResendAt: Date.now(),
+        otpAttempts: 0,
+      });
+
+      await tempUser.save();
+
+      // Send OTP email
+      await sendOtpEmail({ to: email, otp, minutes: 10 });
+
+      // Response: do not return JWT yet
+      res.json({
+        success: true,
+        message: 'OTP has been sent to your email',
+        email: tempUser.email,
       });
     } catch (err) {
       console.error(err.message);
@@ -106,5 +130,10 @@ router.post(
 // Google Login (placeholder)
 // ==============================
 router.post('/google', googleAuth);
+
+
+router.post('/send-otp', sendOtp);       // optional: for explicit request from frontend
+router.post('/verify-otp', verifyOtp);   // frontend posts { email, otp } — returns token & user
+router.post('/resend-otp', resendOtp);   // frontend posts { email } — returns message (rate limited)
 
 module.exports = router;
