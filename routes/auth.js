@@ -1,16 +1,15 @@
+// backend/routes/auth.js
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const { googleAuth } = require('../controllers/googleController');
 
-// @route   POST /api/auth/register
-// @desc    Register user
-// @access  Public
-
-
-// 🧩 Role-based registration
+// ==============================
+// Register User
+// ==============================
 router.post(
   '/register',
   [
@@ -27,10 +26,8 @@ router.post(
 
     try {
       let user = await User.findOne({ email });
-      if (user)
-        return res.status(400).json({ message: 'User already exists' });
+      if (user) return res.status(400).json({ message: 'User already exists' });
 
-      // ✅ Role-specific creation
       if (role === 'jobseeker') {
         if (!name)
           return res.status(400).json({ message: 'Name is required for jobseeker' });
@@ -47,15 +44,10 @@ router.post(
       await user.save();
 
       const payload = { user: { id: user.id, role: user.role } };
-      jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' },
-        (err, token) => {
-          if (err) throw err;
-          res.json({ token, user });
-        }
-      );
+      jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
+        if (err) throw err;
+        res.json({ token, user });
+      });
     } catch (err) {
       console.error(err.message);
       res.status(500).send('Server error');
@@ -63,12 +55,9 @@ router.post(
   }
 );
 
-
-
-
-// @route   POST /api/auth/login
-// @desc    Authenticate user & get token
-// @access  Public
+// ==============================
+// Login User
+// ==============================
 router.post(
   '/login',
   [
@@ -84,20 +73,15 @@ router.post(
 
     try {
       const user = await User.findOne({ email });
-      if (!user)
-        return res.status(400).json({ message: 'Invalid credentials' });
+      if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
       const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch)
-        return res.status(400).json({ message: 'Invalid credentials' });
+      if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-      // Include role in JWT payload for faster role checks
       const payload = { user: { id: user.id, role: user.role } };
-
       jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
         if (err) throw err;
 
-        // Send back token and role-based user object
         res.json({
           message: 'Login successful',
           token,
@@ -118,5 +102,9 @@ router.post(
   }
 );
 
+// ==============================
+// Google Login (placeholder)
+// ==============================
+router.post('/google', googleAuth);
 
 module.exports = router;

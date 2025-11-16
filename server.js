@@ -52,6 +52,7 @@ app.use('/api/v1/messages', require('./routes/messages'))
 app.use('/api/v1/employer/dashboard', require('./routes/employerDashboard'));
 app.use('/api/v1/chats', require('./routes/chats'))
 app.use('/api/v1/wallet', require('./routes/wallet'))
+app.use('/api/v1/recommendations', require('./routes/matching'))
 
 // ✅ Setup Socket.IO (CORS must match frontend)
 const io = require('socket.io')(server, {

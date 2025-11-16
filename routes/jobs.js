@@ -5,6 +5,7 @@ const roleCheck = require('../middleware/roleCheck');
 const { body, validationResult } = require('express-validator');
 const Job = require('../models/Job');
 const Application = require('../models/Application');
+const geoCodePincode = require('../helpers/geoCode')
 
 /**
  * @route   POST /api/jobs/post-job
@@ -61,10 +62,17 @@ router.post(
         companyLogo,
       } = req.body;
 
+      // Convert pincode to coordinates
+      let coordinates = [0, 0];
+      if (location) {
+        const geo = await geoCodePincode(location);
+        if (geo) coordinates = [geo.lng, geo.lat]; // GeoJSON: [lng, lat]
+      }
+
       const job = new Job({
         title,
         description,
-        location,
+        location: { type: "Point", coordinates },
         category,
         type,
         experienceLevel,

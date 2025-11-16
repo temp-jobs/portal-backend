@@ -1,0 +1,207 @@
+# Part Time Match - Matching Engine Documentation
+
+## Overview
+
+The **Matching Engine** in Part Time Match is designed to connect **Jobseekers** with **relevant Jobs** and **Employers** with suitable Candidates.  
+It uses a **scoring-based approach** to rank matches according to skills, experience, location, availability, and other preferences.  
+
+The engine ensures:
+
+- Accurate recommendations for both Jobseekers and Employers  
+- Real-time or near-real-time updates based on profile or job changes  
+- Scalability for thousands of jobs and candidates  
+
+---
+
+## Goals
+
+1. Map **Jobseekers → Jobs**: Recommend jobs that best fit a candidate’s profile.  
+2. Map **Jobs → Candidates**: Recommend candidates that best match job requirements.  
+3. Support **hard requirements** (must-have) and **soft preferences** (nice-to-have) in scoring.  
+4. Maintain a **flexible scoring logic** that can be adjusted over time.  
+
+---
+
+## Matching Criteria
+
+### 1. Hard Requirements (Mandatory)
+These act as **filters** before scoring. If not met, the candidate/job is excluded.  
+
+| Criterion | Notes |
+|-----------|------|
+| Skills | Candidate must have required skills |
+| Experience | Candidate must meet minimum required experience |
+| Location | Candidate must be within job location radius or open to remote |
+| Availability | Candidate availability must align with job schedule |
+| Education / Certification | Required certifications or degrees if specified |
+
+### 2. Soft Preferences (Weighted Scoring)
+These contribute to the **match score** but are not mandatory.  
+
+| Criterion | Notes |
+|-----------|------|
+| Salary Expectation | Candidate preferred salary vs job offer |
+| Industry / Domain Fit | Alignment between candidate’s preferred industry and job industry |
+| Past Project Experience | Similarity to job requirements |
+| Language Proficiency | Optional, adds to score |
+| Company Size / Remote Work Preference | Optional alignment with candidate preference |
+
+---
+
+## Scoring Logic
+
+Each candidate-job pair receives a **numeric score** (0–100) based on weighted criteria.
+
+### Step 1: Assign Weights
+Example weight distribution:
+
+| Criterion | Weight |
+|-----------|-------|
+| Skills Match | 40% |
+| Experience Match | 20% |
+| Location Compatibility | 15% |
+| Availability Fit | 15% |
+| Soft Preferences | 10% |
+
+Weights are configurable per platform settings or employer/jobseeker preferences.
+
+---
+
+### Step 2: Calculate Sub-Scores
+
+1. **Skills Score**  
+SkillsScore = (Number of matched skills / Total required skills) * 100
+
+markdown
+Copy code
+
+2. **Experience Score**  
+if candidateExp >= requiredExp:
+ExperienceScore = 100
+else:
+ExperienceScore = (candidateExp / requiredExp) * 100
+
+markdown
+Copy code
+
+3. **Location Score**  
+- Exact location match → 100  
+- Partial match → calculate distance score using Haversine formula  
+- Remote jobs → score 100 if candidate accepts remote  
+
+4. **Availability Score**  
+AvailabilityScore = (Number of matching slots / Total required slots) * 100
+
+yaml
+Copy code
+
+5. **Soft Preferences Score**  
+- Weighted average based on alignment of optional preferences  
+- Example: salary, industry, language
+
+---
+
+### Step 3: Compute Total Score
+
+TotalScore = SkillsScore * 0.4
++ ExperienceScore * 0.2
++ LocationScore * 0.15
++ AvailabilityScore * 0.15
++ SoftPreferenceScore * 0.1
+
+markdown
+Copy code
+
+- Returns a **0–100 score**  
+- Higher score → better match  
+
+---
+
+## Matching Workflow
+
+1. **Filter Phase**  
+   - Remove candidates/jobs failing hard requirements  
+   - Reduces data set for scoring  
+
+2. **Score Phase**  
+   - Calculate sub-scores and weighted total score  
+
+3. **Ranking Phase**  
+   - Sort matches by total score (descending)  
+
+4. **Return Recommendations**  
+   - Return top N matches with scores  
+   - Optional caching for performance  
+
+---
+
+## Data Modeling
+
+### Jobseeker Profile (required fields for matching)
+- `skills` (array)  
+- `experience` (years/months)  
+- `location` (GeoJSON Point)  
+- `availability` (days/times)  
+- `education` / `certifications`  
+- `preferredSalary`  
+- `preferredIndustry`  
+
+### Job / Employer Profile
+- `title`, `description`  
+- `skillsRequired` (array)  
+- `experienceRequired`  
+- `location` (GeoJSON Point)  
+- `availability` / shifts  
+- `salaryOffered`  
+- `industry`  
+
+### Applications
+- `jobId`, `jobseekerId`  
+- `status` (`applied`, `shortlisted`, etc.)  
+- `appliedAt`  
+
+### Optional: Match / Recommendation Cache
+- `jobId` → `candidateIds` with scores  
+- `jobseekerId` → `jobIds` with scores  
+- `lastUpdated`  
+
+---
+
+## Future Enhancements
+
+1. **Machine Learning Recommendation**
+   - Use past applications, acceptances, and chat activity  
+   - Collaborative Filtering or Content-based filtering  
+
+2. **Real-time Matching**
+   - Use MongoDB Change Streams or Redis cache  
+   - Trigger re-scoring on profile/job updates  
+
+3. **Dynamic Feedback Loop**
+   - Adjust weights based on shortlisting/acceptance data  
+
+---
+
+## Technical Considerations
+
+- Node.js + Express.js for API endpoints  
+- MongoDB with indexes for **skills, experience, geolocation, availability**  
+- Redis caching for precomputed matches (optional)  
+- Cron jobs or event-driven pipelines for periodic re-scoring  
+
+---
+
+## API Endpoints (High Level)
+
+- `GET /recommendations/jobseeker/:id` → Returns top N jobs for candidate  
+- `GET /recommendations/employer/:id` → Returns top N candidates for job  
+- `POST /match/compute` → Trigger re-computation of scores (optional)  
+
+---
+
+## Notes
+
+- All scoring functions are configurable and extendable  
+- Hard requirements act as filters before scoring  
+- Soft preferences allow ranking but do not exclude matches  
+- Scoring formula can evolve over time based on analytics and ML insights 
