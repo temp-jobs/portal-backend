@@ -110,6 +110,7 @@ router.put(
 
       const essentialFields = [user.name, user.skills?.length, user.education?.length];
       user.profileCompleted = essentialFields.every(Boolean);
+      console.log(user.profileCompleted)
 
       await user.save();
 
@@ -182,6 +183,7 @@ router.post(
         preferredIndustry,
         totalExperience,
         location: { type: 'Point', coordinates },
+        
         profileCompleted: true,
       });
 
