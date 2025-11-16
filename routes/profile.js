@@ -4,7 +4,7 @@ const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 const User = require('../models/User');
-const { geocodePincode } = require('../helpers/geocode');
+const { geocodePincode } = require('../helpers/geoCode');
 
 
 /**
